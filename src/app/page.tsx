@@ -31,13 +31,7 @@ export default function Home() {
         {products.map((product) => (
           <div key={product.id} className="border p-4 rounded-lg shadow-sm hover:shadow-md transition">
             <Link href={`/products/${product.id}`}>
-            <img 
-  src={product.file} 
-  alt={product.name} 
-  className="w-full h-40 object-cover rounded-md" 
-  suppressHydrationWarning 
-/>
-
+              <img src={product.file} alt={product.name} className="w-full h-40 object-cover rounded-md" />
             </Link>
             <div className="flex justify-between items-center mt-2">
               <h2 className="text-lg font-semibold">{product.name}</h2>
@@ -45,12 +39,11 @@ export default function Home() {
             </div>
             {/* Tombol Tambah ke Keranjang */}
             <button
-                onClick={async () => {
-                  const userID = 1; // Gantilah dengan user yang sedang login
-                  await addToCart(userID, product.id, 1);
-                  alert(`${product.name} ditambahkan ke keranjang!`);
-                }}
-              className="mt-2 bg-blue-500 text-white px-4 py-2 rounded"
+              onClick={async () => {
+                await addToCart(product.id, 1);
+                alert(`${product.name} ditambahkan ke keranjang!`);
+              }}
+              className="mt-3 w-full bg-blue-600 text-white py-2 rounded-md font-medium hover:bg-blue-700 transition"
             >
               Tambah ke Keranjang
             </button>

@@ -16,7 +16,7 @@ interface CartItem {
 interface CartContextType {
   cartItems: CartItem[];
   fetchCart: () => Promise<void>;
-  addToCart: (productId: number, quantity: number) => Promise<void>;
+  addToCart: (userID: number, productId: number, quantity: number) => Promise<void>;
   removeFromCart: (itemId: number) => Promise<void>;
 }
 

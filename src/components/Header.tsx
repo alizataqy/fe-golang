@@ -23,9 +23,12 @@ const Header: React.FC = () => {
         </nav>
 
         <div className="flex items-center space-x-4">
+          {user && (
         <Link href="/cart" className="px-4 py-2 bg-blue-500 rounded">
-          Cart ({cartItems?.length || 0})
-        </Link>
+        Cart ({cartItems?.length || 0})
+      </Link>
+          )}
+
 
           {user ? (
             <>

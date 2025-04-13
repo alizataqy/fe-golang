@@ -2,9 +2,11 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import axios from "axios";
-import { useAuth } from "./AuthContext"; // Ambil user dari AuthContext
+import { useAuth } from "./AuthContext";
 
-const API_URL = "http://localhost:3000/api/cart";
+const BASE_URL = "http://localhost:3000";
+const API_URL = `${BASE_URL}/api/cart`;
+const PRODUCT_URL = `${BASE_URL}/api/products`; 
 
 interface CartItem {
   id: number;
@@ -13,80 +15,86 @@ interface CartItem {
   quantity: number;
 }
 
+interface Product {
+  id: number;
+  name: string;
+  price: number;
+}
+
 interface CartContextType {
   cartItems: CartItem[];
+  products: Product[];
   fetchCart: () => Promise<void>;
-  addToCart: (userID: number, productId: number, quantity: number) => Promise<void>;
+  fetchProducts: () => Promise<void>;
+  addToCart: (productId: number, quantity: number, productPrice: number) => Promise<void>;
   removeFromCart: (itemId: number) => Promise<void>;
+  getProductById: (productId: number) => Product | undefined;
+  getSubtotal: (productId: number, quantity: number) => number;
+  getCartTotal: () => number;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const { user } = useAuth(); // Ambil user dari AuthContext
+  const [products, setProducts] = useState<Product[]>([]);
+  const { user } = useAuth();
 
   useEffect(() => {
     if (user?.id) {
       fetchCart();
+      fetchProducts(); // ambil data produk saat user login
     }
   }, [user]);
 
   const fetchCart = async () => {
-    if (!user?.id) return; // Jangan fetch kalau belum login
+    if (!user?.id) return;
 
     const token = localStorage.getItem("token");
-    if (!token) {
-        console.error("❌ Token tidak ditemukan! Pengguna harus login.");
-        return;
-    }
+    if (!token) return;
 
     try {
-        const response = await axios.get(`${API_URL}/${user.id}`, {
-            headers: {
-                Authorization: `Bearer ${token}`,
-            },
-        });
+      const response = await axios.get(`${API_URL}/${user.id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-        console.log("✅ Cart berhasil di-fetch:", response.data);
-        setCartItems(response.data.items || []);
+      setCartItems(response.data.items || []);
     } catch (error) {
-        console.error("❌ Error fetching cart:", error);
+      console.error("❌ Error fetching cart:", error);
     }
-};
+  };
+
+  const fetchProducts = async () => {
+    try {
+      const res = await axios.get(PRODUCT_URL);
+      setProducts(res.data);
+    } catch (error) {
+      console.error("❌ Error fetching products:", error);
+    }
+  };
 
   const addToCart = async (productId: number, quantity: number) => {
-    if (typeof window === "undefined") return; // Hindari error di SSR
-
     const token = localStorage.getItem("token");
-    if (!token) {
-      console.error("❌ Tidak ada token! Silakan login.");
-      alert("Silakan login terlebih dahulu!");
-      return;
-    }
-
-    if (!user?.id) {
-      console.error("❌ User ID tidak ditemukan! Pastikan pengguna sudah login.");
-      return;
-    }
+    if (!token || !user?.id) return;
 
     try {
-      const response = await axios.post(
+      await axios.post(
         `${API_URL}/add`,
         {
-          user_id: user.id, // Pastikan user.id tersedia
+          user_id: user.id,
           product_id: productId,
           quantity,
         },
         {
           headers: {
-            Authorization: `Bearer ${token}`, // Kirim token dengan benar
+            Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
         }
       );
 
-      console.log("✅ Produk berhasil ditambahkan ke cart:", response.data);
       fetchCart();
     } catch (error) {
       console.error("❌ Error adding to cart:", error);
@@ -94,13 +102,8 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const removeFromCart = async (itemId: number) => {
-    if (!user?.id) return;
-
     const token = localStorage.getItem("token");
-    if (!token) {
-      console.error("❌ Token tidak ditemukan saat menghapus item!");
-      return;
-    }
+    if (!token || !user?.id) return;
 
     try {
       await axios.delete(`${API_URL}/item/${itemId}`, {
@@ -109,15 +112,41 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         },
       });
 
-      console.log(`✅ Item ${itemId} berhasil dihapus dari cart.`);
       fetchCart();
     } catch (error) {
       console.error("❌ Error removing from cart:", error);
     }
   };
 
+  const getProductById = (productId: number): Product | undefined => {
+    return products.find((product) => product.id === productId);
+  };
+
+  const getSubtotal = (productId: number, quantity: number): number => {
+    const product = getProductById(productId);
+    return (product?.price || 0) * quantity;
+  };
+
+  const getCartTotal = (): number => {
+    return cartItems.reduce((total, item) => {
+      return total + getSubtotal(item.product_id, item.quantity);
+    }, 0);
+  };
+
   return (
-    <CartContext.Provider value={{ cartItems, fetchCart, addToCart, removeFromCart }}>
+    <CartContext.Provider
+      value={{
+        cartItems,
+        products,
+        fetchCart,
+        fetchProducts,
+        addToCart,
+        removeFromCart,
+        getProductById,
+        getSubtotal,
+        getCartTotal,
+      }}
+    >
       {children}
     </CartContext.Provider>
   );
